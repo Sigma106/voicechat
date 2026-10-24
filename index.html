@@ -24,7 +24,7 @@ small{color:#94a3b8;line-height:1.5;display:block;margin-top:16px}
 <section class="panel" style="margin-bottom:16px"><h2>Open a saved website</h2><p>Choose an HTML file and its accompanying images, videos, styles and scripts (50 MB total maximum).</p><input id="files" type="file" multiple style="width:100%;margin:8px 0"><button type="button" id="loadFiles">Load saved files</button><p id="localStatus" role="status" aria-live="polite"></p></section><section class="panel"><label for="url">Website URL</label><form id="form"><input id="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required><button type="submit">View website</button></form>
 <div class="actions"><a class="action" id="open" href="https://example.com" target="_blank" rel="noopener noreferrer">Open in browser ↗</a><button id="reset" type="button">Clear preview</button></div>
 <p id="status" role="status" aria-live="polite">Ready.</p>
-<div id="frameWrap"><div id="overlay"><div><h2>Preview area</h2><p>Some websites prevent being displayed inside another website. Use “Open in browser” if you see a blank preview.</p></div></div><iframe id="frame" title="Website preview" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<div id="frameWrap"><div id="overlay"><div><h2>Preview area</h2><p>Saved copies may have missing media or interactive features. Some websites prevent being displayed inside another website. Use “Open in browser” if you see a blank preview.</p></div></div><iframe id="frame" title="Website preview" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
 <small>This is a browser-based viewer, not a VPN or proxy. It cannot bypass iOS Screen Time, parental controls, network blocks, login requirements, or sites that prohibit embedding. A loaded iframe does not always mean the site displayed successfully.</small>
 </section></main>
 <script>
@@ -49,10 +49,10 @@ form.addEventListener('submit',async e=>{
   const saved=await fetch(result.snapshotUrl);
   if(!saved.ok)throw new Error('Saved snapshot could not be opened from storage');
   const html=await saved.text();
-  frame.setAttribute('sandbox','allow-scripts');
+  frame.setAttribute('sandbox','');
   frame.removeAttribute('src');
   frame.srcdoc=html;overlay.hidden=true;
-  status.textContent='Loaded saved index.html from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets). This is a static copy, not the live website.';
+  status.textContent='Loaded saved index.html from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets). Static preview: buttons, age checks and remote images may not work.';
  }catch(error){status.textContent='Could not save the site: '+(error?.message||'Unknown error');overlay.hidden=false;}
  finally{loading=false;button.disabled=false;button.textContent='View website';}
 });
