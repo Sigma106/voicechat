@@ -42,8 +42,10 @@ form.addEventListener('submit',async e=>{
  status.textContent='Downloading publicly available page and assets into Supabase (maximum 50 MB)…';
  try{
   const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','apikey':PUBLIC_KEY,'Authorization':'Bearer '+PUBLIC_KEY},body:JSON.stringify({url})});
-  const result=await response.json();
-  if(!response.ok||result.error)throw new Error(result.error||'Snapshot failed');
+  const raw=await response.text();
+  let result;
+  try{result=JSON.parse(raw)}catch{throw new Error('Supabase returned HTTP '+response.status+' instead of JSON. '+raw.slice(0,140))}
+  if(!response.ok||result.error)throw new Error(result.error||result.message||result.msg||('Supabase returned HTTP '+response.status));
   const saved=await fetch(result.snapshotUrl);
   if(!saved.ok)throw new Error('Saved snapshot could not be opened from storage');
   const html=await saved.text();
