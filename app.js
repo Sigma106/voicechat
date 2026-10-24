@@ -3,9 +3,15 @@
 // TURN helps WebRTC cross restrictive NATs but the public relay has no uptime SLA.
 const APP_ID = 'io.github.sigma106.voicechat.public.v1';
 const ROOM_ID = 'everyone';
+// Pin multiple public MQTT brokers so devices on different networks try the same ones.
+const MQTT_BROKERS = [
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://test.mosquitto.org:8081/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt'
+];
 const SIGNALS = [
-  {name: 'mqtt', url: 'https://esm.sh/@trystero-p2p/mqtt@0.26.0?bundle'},
-  {name: 'nostr', url: 'https://esm.sh/trystero@0.26.0?bundle'}
+  {name: 'mqtt', url: 'https://esm.sh/@trystero-p2p/mqtt@0.26.0?bundle', relayConfig: {urls: MQTT_BROKERS}},
+  {name: 'nostr', url: 'https://esm.sh/trystero@0.26.0?bundle', relayConfig: {redundancy: 6}}
 ];
 const OWN_TURN_SERVERS = []; // Optional. See README.md for dedicated TURN setup.
 const $ = id => document.getElementById(id);
@@ -17,7 +23,7 @@ const ui = {
   mute: $('mute'), muteSymbol: $('mute-symbol'), muteLabel: $('mute-label'),
   invite: $('invite'), inviteLabel: $('invite-label'), leave: $('leave'),
   notice: $('notice'), enableSound: $('enable-sound'), retry: $('retry'),
-  audioContainer: $('audio-container')
+  audioContainer: $('audio-container'), diagnostics: $('diagnostics')
 };
 let session = null, busy = false, muted = false;
 const stopMic = stream => stream?.getTracks().forEach(track => track.stop());
@@ -87,6 +93,25 @@ async function checkTurn(servers) {
   }
 }
 
+// A successful WebSocket open proves reachability, not MQTT subscription.
+function testWebSocket(url) {
+  return new Promise(resolve => {
+    let socket, finished = false;
+    const timer = setTimeout(() => complete(false), 6000);
+    const complete = ok => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try { socket?.close(); } catch {}
+      resolve(ok);
+    };
+    try {
+      socket = new WebSocket(url);
+      socket.onopen = () => complete(true);
+      socket.onerror = () => complete(false);
+    } catch { complete(false); }
+  });
+}
 function peerKey(name, id) { return name + ':' + id; }
 function identityOf(s, key) { return s.routes.get(key)?.identity || key; }
 function uniqueRemoteIds(s) { return new Set([...s.routes.keys()].map(key => identityOf(s, key))); }
@@ -212,15 +237,16 @@ function attachStrategy(s, config, module) {
   const name = config.name;
   let room;
   room = module.joinRoom(
-    {appId: APP_ID, turnConfig: s.servers},
+    {appId: APP_ID, turnConfig: s.servers, relayConfig: config.relayConfig},
     ROOM_ID,
     {onJoinError: details => {
       console.warn('Connection failure via ' + name, details);
       if (session !== s) return;
-      const hasConnections = uniqueRemoteIds(s).size > 0;
-      if (!hasConnections) {
-        ui.notice.textContent = 'Connection negotiation failed. Try Retry on both devices.';
+      s.connectionFailures.set(name, (s.connectionFailures.get(name) || 0) + 1);
+      if (!activeRemoteAudioIds(s).size) {
+        ui.notice.textContent = 'WebRTC failed to connect on ' + name.toUpperCase() + '. Another network or dedicated TURN relay may be needed.';
         ui.retry.hidden = false;
+        ui.diagnostics.hidden = false;
       }
     }}
   );
@@ -266,6 +292,7 @@ async function start() {
   ui.error.hidden = true;
   ui.notice.textContent = '';
   ui.retry.hidden = true;
+  ui.diagnostics.hidden = true;
   let stream = null;
   try {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) throw Error('insecure');
@@ -280,7 +307,8 @@ async function start() {
     if (!available.length) throw Error('Both connection libraries failed to load.');
     const s = {
       stream, servers, rooms: new Map(), routes: new Map(), audios: new Map(),
-      clientId: crypto.randomUUID(), turnAvailable: null, stopMeter: null
+      clientId: crypto.randomUUID(), turnAvailable: null, brokerResult: null,
+      connectionFailures: new Map(), stopMeter: null
     };
     session = s;
     for (const item of available) {
@@ -305,13 +333,29 @@ async function start() {
         ui.notice.textContent = 'TURN fallback unavailable. Direct connections might work, but some Wi-Fi networks will block calls.';
       }
     }).catch(error => console.warn('TURN diagnostic:', error));
-    // No successful remote discovery after 18 seconds needs a clear explanation.
-    setTimeout(() => {
+    // 01 means nobody has completed a WebRTC connection. Check the public
+    // broker path before assuming the other browser is simply absent.
+    setTimeout(async () => {
       if (session !== s || uniqueRemoteIds(s).size) return;
       ui.connectionStatus.textContent = 'No other person connected yet';
-      ui.notice.textContent = 'If someone else has joined and you still see 01, the signaling network may be blocked. Both of you can press Retry.';
       ui.retry.hidden = false;
-    }, 18000);
+      ui.diagnostics.hidden = false;
+      ui.notice.textContent = 'Checking public relay access…';
+      try {
+        const access = await Promise.all(MQTT_BROKERS.map(testWebSocket));
+        if (session !== s || uniqueRemoteIds(s).size) return;
+        s.brokerResult = access.filter(Boolean).length;
+        if (!s.brokerResult)
+          ui.notice.textContent = 'Your browser cannot reach the public MQTT relays. Try turning off VPN or browser filters, or using mobile data.';
+        else if (s.connectionFailures.size)
+          ui.notice.textContent = 'Public relays respond, but the WebRTC handshake failed. A working dedicated TURN relay may be required.';
+        else
+          ui.notice.textContent = 'Public relays respond, but no peer connected. Refresh the page on both devices and ensure you are using the exact same URL.';
+      } catch (error) {
+        console.warn('Relay check failed', error);
+        if (session === s) ui.notice.textContent = 'Could not complete the connection test. Copy diagnostics for more details.';
+      }
+    }, 15000);
     stream.getAudioTracks()[0]?.addEventListener('ended', () => {
       if (session === s) {
         ui.micStatus.textContent = 'MIC DISCONNECTED';
@@ -339,6 +383,7 @@ async function leave() {
   ui.landing.hidden = false;
   ui.enableSound.hidden = true;
   ui.retry.hidden = true;
+  ui.diagnostics.hidden = true;
   ui.notice.textContent = '';
   ui.error.hidden = true;
   s.stopMeter?.();
@@ -360,6 +405,27 @@ ui.mute.addEventListener('click', () => {
   ui.mute.setAttribute('aria-pressed', String(muted));
   ui.muteLabel.textContent = muted ? 'UNMUTE MIC' : 'MUTE MIC';
   ui.muteSymbol.textContent = muted ? '×' : '◖))';
+  if (muted) ui.notice.textContent = 'Your microphone is muted. Press UNMUTE MIC to let the other person hear you.';
+  else if (ui.notice.textContent.startsWith('Your microphone is muted')) ui.notice.textContent = '';
+});
+ui.diagnostics.addEventListener('click', async () => {
+  const s = session;
+  if (!s) return;
+  const data = [
+    'openline connection diagnostics / v4',
+    'Routes loaded: ' + [...s.rooms.keys()].join(','),
+    'MQTT brokers reachable: ' + (s.brokerResult === null ? 'unknown' : s.brokerResult + '/' + MQTT_BROKERS.length),
+    'TURN relay candidate: ' + (s.turnAvailable === null ? 'unknown' : s.turnAvailable ? 'yes' : 'no'),
+    'WebRTC connection errors: ' + [...s.connectionFailures.entries()].map(([n, x]) => n + ':' + x).join(','),
+    'Peer count: ' + uniqueRemoteIds(s).size,
+    'Remote audio count: ' + activeRemoteAudioIds(s).size,
+    'Microphone muted: ' + muted,
+    'Browser: ' + navigator.userAgent
+  ].join('\n');
+  try {
+    await navigator.clipboard.writeText(data);
+    ui.notice.textContent = 'Diagnostic report copied. Paste it into our chat.';
+  } catch { ui.notice.textContent = data.replaceAll('\n', ' | '); }
 });
 ui.invite.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(location.href); ui.inviteLabel.textContent = 'LINK COPIED'; }
