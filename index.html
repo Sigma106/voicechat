@@ -1,69 +1,36 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#efeee8">
-  <meta name="description" content="One link. One room. Everyone on the same line.">
-  <title>openline — start talking</title>
-  <link rel="stylesheet" href="./styles.css?v=5">
-  <script src="./turn-config.js?v=1"></script>
-  <script type="module" src="./app.js?v=5"></script>
-</head>
-<body>
-  <div class="shell">
-    <header class="masthead">
-      <a href="./" class="logo" aria-label="openline home"><span class="logo-symbol" aria-hidden="true">↗</span>openline<span class="logo-stop">.</span></a>
-      <div class="masthead-note"><span class="beacon" aria-hidden="true"></span> PUBLIC ROOM <span class="masthead-divider">/</span> 001</div>
-    </header>
-
-    <main class="content">
-      <section id="landing" class="landing" aria-label="Join voice chat">
-        <div class="landing-art" aria-hidden="true">
-          <span class="landing-art__one">O</span><span class="landing-art__two">L</span><span class="landing-art__slash">/</span>
-        </div>
-        <button type="button" id="start" class="start-button">
-          <span class="start-button__icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none"><path d="M16 4v24M9 10v12M23 10v12M2 14v4M30 14v4" stroke="currentColor" stroke-width="2.6" stroke-linecap="square"/></svg>
-          </span>
-          <span class="start-button__text" id="start-label">START VOICE CHAT</span>
-          <span class="start-button__arrow" aria-hidden="true">↗</span>
-        </button>
-        <p id="error" class="error" role="alert" hidden></p>
-        <p class="landing-note">NO ACCOUNT. NO ROOM CODES. JUST TALK.</p>
-      </section>
-
-      <section id="call" class="room" aria-label="Live voice room" hidden>
-        <div class="room-heading">
-          <span class="room-kicker"><span class="beacon beacon--on" aria-hidden="true"></span> ON THE LINE <span class="room-id">/ ROOM 001</span></span>
-          <h1 id="heading" aria-live="polite">Waiting for voices.</h1>
-          <p class="room-description" id="description">Send this link to someone. They'll join the same room.</p>
-        </div>
-
-        <div class="audio-board">
-          <div class="audio-board__top"><span>YOUR MICROPHONE</span><span id="mic-status">MIC READY</span></div>
-          <div class="meter" role="presentation"><div class="meter__grid"></div><div class="meter__fill" id="mic-level"></div><span class="meter__zero">0</span><span class="meter__max">100</span></div>
-          <div class="audio-board__bottom"><span id="connection-status" aria-live="polite">Waiting for someone else</span><span id="people">01 ON THE LINE</span></div>
-        </div>
-
-        <div class="controls" aria-label="Call controls">
-          <button type="button" id="mute" class="control control--primary" aria-pressed="false">
-            <span id="mute-symbol" class="control-icon" aria-hidden="true">◖))</span><span id="mute-label">MUTE MIC</span>
-          </button>
-          <button type="button" id="invite" class="control"><span class="control-icon" aria-hidden="true">↗</span><span id="invite-label">COPY LINK</span></button>
-          <button type="button" id="leave" class="control control--leave"><span class="control-icon" aria-hidden="true">×</span><span>LEAVE</span></button>
-        </div>
-        <p id="notice" class="notice" role="status" aria-live="polite"></p>
-        <div class="assistance">
-          <button type="button" id="enable-sound" class="text-button" hidden>Enable speaker audio ↗</button>
-          <button type="button" id="retry" class="text-button" hidden>Retry connection ↗</button>
-          <button type="button" id="diagnostics" class="text-button" hidden>Copy connection report ↗</button>
-        </div>
-      </section>
-    </main>
-
-    <footer class="footer"><span>VOICE, NOT VIDEO</span><span>A SMALL PLACE ON THE INTERNET <span class="footer-star">✳</span></span></footer>
-  </div>
-  <div id="audio-container" aria-hidden="true"></div>
-</body>
-</html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827"><title>Website Viewer</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#0b1020;color:#f8fafc}
+main{width:min(850px,100%);margin:auto;padding:24px 16px}
+h1{margin:8px 0;font-size:clamp(1.6rem,5vw,2.2rem)}
+p{line-height:1.5;color:#cbd5e1}.panel{background:#182235;border:1px solid #334155;border-radius:18px;padding:18px}
+label{display:block;margin-bottom:10px;font-weight:600}
+form{display:flex;gap:10px;flex-wrap:wrap}input{flex:1 1 240px;min-width:0;background:#0b1220;color:white;border:1px solid #64748b;border-radius:12px;padding:14px;font-size:16px}
+button,a.action{background:#2563eb;border:0;border-radius:12px;color:white;padding:14px 18px;text-decoration:none;font-size:16px;font-weight:600;cursor:pointer}
+a.action{display:inline-block;background:#334155}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #93c5fd}
+.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}
+#status{font-size:14px;min-height:22px}#frameWrap{position:relative;border:1px solid #475569;border-radius:16px;overflow:hidden;background:white;min-height:440px}
+iframe{display:block;width:100%;height:65vh;min-height:440px;border:0;background:white}
+#overlay{position:absolute;inset:0;background:#111827;color:white;padding:32px 20px;display:flex;align-items:center;justify-content:center;text-align:center}
+#overlay[hidden]{display:none}
+small{color:#94a3b8;line-height:1.5;display:block;margin-top:16px}
+</style></head>
+<body><main><h1>Website Viewer</h1><p>Enter a website address to preview it below or open it in a normal tab.</p>
+<section class="panel"><label for="url">Website URL</label><form id="form"><input id="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required><button type="submit">View website</button></form>
+<div class="actions"><a class="action" id="open" href="https://example.com" target="_blank" rel="noopener noreferrer">Open in browser ↗</a><button id="reset" type="button">Clear preview</button></div>
+<p id="status" role="status" aria-live="polite">Ready.</p>
+<div id="frameWrap"><div id="overlay"><div><h2>Preview area</h2><p>Some websites prevent being displayed inside another website. Use “Open in browser” if you see a blank preview.</p></div></div><iframe id="frame" title="Website preview" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<small>This is a browser-based viewer, not a VPN or proxy. It cannot bypass iOS Screen Time, parental controls, network blocks, login requirements, or sites that prohibit embedding. A loaded iframe does not always mean the site displayed successfully.</small>
+</section></main>
+<script>
+(()=>{'use strict';const form=document.getElementById('form'),input=document.getElementById('url'),frame=document.getElementById('frame'),overlay=document.getElementById('overlay'),status=document.getElementById('status'),open=document.getElementById('open');
+function normalize(value){let s=value.trim();if(!/^https?:\/\//i.test(s))s='https://'+s;const u=new URL(s);if(!['https:','http:'].includes(u.protocol))throw Error('Only HTTP or HTTPS addresses are supported.');return u.href}
+form.addEventListener('submit',e=>{e.preventDefault();try{const url=normalize(input.value);input.value=url;open.href=url;overlay.hidden=true;status.textContent='Preview requested. If it stays white, the site may block embedding. Try “Open in browser”.';frame.src=url}catch(e){status.textContent='Enter a valid website URL.'}});
+document.getElementById('reset').addEventListener('click',()=>{frame.removeAttribute('src');overlay.hidden=false;status.textContent='Preview cleared.';});
+})();
+</script></body></html>
