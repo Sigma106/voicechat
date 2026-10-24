@@ -52,7 +52,7 @@ form.addEventListener('submit',async e=>{
   frame.setAttribute('sandbox','');
   frame.removeAttribute('src');
   frame.srcdoc=html;overlay.hidden=true;
-  status.textContent='Loaded saved index.html from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets). Static preview: buttons, age checks and remote images may not work.';
+  status.textContent='Loaded saved index.html from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets, '+(result.missingAssets||0)+' unavailable). Static preview: some site features may not work.';
  }catch(error){status.textContent='Could not save the site: '+(error?.message||'Unknown error');overlay.hidden=false;}
  finally{loading=false;button.disabled=false;button.textContent='View website';}
 });
