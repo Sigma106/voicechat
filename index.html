@@ -30,7 +30,30 @@ small{color:#94a3b8;line-height:1.5;display:block;margin-top:16px}
 <script>
 (()=>{'use strict';const form=document.getElementById('form'),input=document.getElementById('url'),frame=document.getElementById('frame'),overlay=document.getElementById('overlay'),status=document.getElementById('status'),open=document.getElementById('open');
 function normalize(value){let s=value.trim();if(!/^https?:\/\//i.test(s))s='https://'+s;const u=new URL(s);if(!['https:','http:'].includes(u.protocol))throw Error('Only HTTP or HTTPS addresses are supported.');return u.href}
-form.addEventListener('submit',e=>{e.preventDefault();try{const url=normalize(input.value);input.value=url;open.href=url;overlay.hidden=true;status.textContent='Preview requested. If it stays white, the site may block embedding. Try “Open in browser”.';frame.src=url}catch(e){status.textContent='Enter a valid website URL.'}});
+const API='https://hgvvnfzevklbanudjaff.supabase.co/functions/v1/capture-site';
+const PUBLIC_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndnZuZnpldmtsYmFudWRqYWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMDg3ODIsImV4cCI6MjEwNjg4NDc4Mn0.6xdY74YY86ixQbIkxgbQqpgyC4jl_3FoXRyYgVj7kmM';
+let loading=false;
+form.addEventListener('submit',async e=>{
+ e.preventDefault();if(loading)return;
+ let url;try{url=normalize(input.value)}catch{status.textContent='Enter a valid HTTPS website URL.';return}
+ if(!url.startsWith('https://')){status.textContent='Snapshots require HTTPS websites.';return}
+ open.href=url;input.value=url;loading=true;
+ const button=form.querySelector('button');button.disabled=true;button.textContent='Saving site…';
+ status.textContent='Downloading publicly available page and assets into Supabase (maximum 50 MB)…';
+ try{
+  const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','apikey':PUBLIC_KEY,'Authorization':'Bearer '+PUBLIC_KEY},body:JSON.stringify({url})});
+  const result=await response.json();
+  if(!response.ok||result.error)throw new Error(result.error||'Snapshot failed');
+  const saved=await fetch(result.snapshotUrl);
+  if(!saved.ok)throw new Error('Saved snapshot could not be opened from storage');
+  const html=await saved.text();
+  frame.setAttribute('sandbox','allow-scripts');
+  frame.removeAttribute('src');
+  frame.srcdoc=html;overlay.hidden=true;
+  status.textContent='Loaded saved index.html from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets). This is a static copy, not the live website.';
+ }catch(error){status.textContent='Could not save the site: '+(error?.message||'Unknown error');overlay.hidden=false;}
+ finally{loading=false;button.disabled=false;button.textContent='View website';}
+});
 document.getElementById('reset').addEventListener('click',()=>{frame.removeAttribute('src');overlay.hidden=false;status.textContent='Preview cleared.';});
 })();
 </script><script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script><script>
