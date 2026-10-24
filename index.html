@@ -21,7 +21,7 @@ iframe{display:block;width:100%;height:65vh;min-height:440px;border:0;background
 small{color:#94a3b8;line-height:1.5;display:block;margin-top:16px}
 </style></head>
 <body><main><h1>Website Viewer</h1><p>Enter a website address to preview it below or open it in a normal tab.</p>
-<section class="panel" style="margin-bottom:16px"><h2>Open a saved website</h2><p>Choose an HTML file and its accompanying images, scripts, styles, and videos (up to 50 MB total). This previews files stored on your device, not a live URL.</p><input id="files" type="file" multiple style="width:100%;margin:8px 0" accept=".html,.htm,.css,.js,.png,.jpg,.jpeg,.gif,.svg,.webp,.mp4,.webm,.mov,.woff,.woff2,.ttf,.json,.ico,.avif,.mp3,.ogg"><button type="button" id="loadFiles">Load saved files</button><p id="localStatus" role="status" aria-live="polite"></p></section><section class="panel"><label for="url">Website URL</label><form id="form"><input id="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required><button type="submit">View website</button></form>
+<section class="panel" style="margin-bottom:16px"><h2>Open a saved website</h2><p>Choose an HTML file and its accompanying images, videos, styles and scripts (50 MB total maximum).</p><input id="files" type="file" multiple style="width:100%;margin:8px 0"><button type="button" id="loadFiles">Load saved files</button><p id="localStatus" role="status" aria-live="polite"></p></section><section class="panel"><label for="url">Website URL</label><form id="form"><input id="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required><button type="submit">View website</button></form>
 <div class="actions"><a class="action" id="open" href="https://example.com" target="_blank" rel="noopener noreferrer">Open in browser ↗</a><button id="reset" type="button">Clear preview</button></div>
 <p id="status" role="status" aria-live="polite">Ready.</p>
 <div id="frameWrap"><div id="overlay"><div><h2>Preview area</h2><p>Some websites prevent being displayed inside another website. Use “Open in browser” if you see a blank preview.</p></div></div><iframe id="frame" title="Website preview" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
@@ -33,33 +33,32 @@ function normalize(value){let s=value.trim();if(!/^https?:\/\//i.test(s))s='http
 form.addEventListener('submit',e=>{e.preventDefault();try{const url=normalize(input.value);input.value=url;open.href=url;overlay.hidden=true;status.textContent='Preview requested. If it stays white, the site may block embedding. Try “Open in browser”.';frame.src=url}catch(e){status.textContent='Enter a valid website URL.'}});
 document.getElementById('reset').addEventListener('click',()=>{frame.removeAttribute('src');overlay.hidden=false;status.textContent='Preview cleared.';});
 })();
-</script><script>
+</script><script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script><script>
 (()=>{'use strict';
 const pick=document.getElementById('files'),status=document.getElementById('localStatus'),iframe=document.getElementById('frame'),overlay=document.getElementById('overlay');
-let active=[];
-const clean=()=>{active.forEach(u=>URL.revokeObjectURL(u));active=[]};
+let urls=[];
 document.getElementById('loadFiles').addEventListener('click',async()=>{
- const fs=[...pick.files];if(!fs.length){status.textContent='Select your saved website files first.';return}
- const total=fs.reduce((n,f)=>n+f.size,0);
- if(total>50*1024*1024){status.textContent='Files exceed the 50 MB limit.';return}
- const entry=fs.find(f=>/^index\.html?$/i.test(f.name))||fs.find(f=>/\.html?$/i.test(f.name));
- if(!entry){status.textContent='Include an HTML file.';return}
- clean();
- const urls=new Map();
- for(const f of fs){if(f===entry)continue;const u=URL.createObjectURL(f);active.push(u);urls.set(f.name,u)}
+ const files=[...pick.files];if(!files.length){status.textContent='Select saved website files first.';return;}
+ const bytes=files.reduce((sum,f)=>sum+f.size,0);if(bytes>52428800){status.textContent='The 50 MB limit was exceeded.';return;}
+ const entry=files.find(f=>/^index\.html?$/i.test(f.name))||files.find(f=>/\.html?$/i.test(f.name));
+ if(!entry){status.textContent='Select an HTML file along with its assets.';return;}
+ urls.forEach(u=>URL.revokeObjectURL(u));urls=[];
  try{
  let html=await entry.text();
- // Match local relative file names in quoted HTML/CSS resource references.
- for(const [name,url] of urls){
-  const esc=name.replace(/[.*+?^\x24{}()|[\]\\]/g,'\\</script><script>if("serviceWorker"');
-  html=html.replace(new RegExp('(["\\\'\\(])(?:\\.\\/)?'+esc+'(?=["\\\'\\)])','g'),(_,lead)=>lead+url);
+ for(const file of files){
+  if(file===entry)continue;
+  const url=URL.createObjectURL(file);urls.push(url);
+  for(const prefix of ['','./']){
+   for(const mark of ['"',"'"]){
+    html=html.split(mark+prefix+file.name+mark).join(mark+url+mark);
+   }
+  }
  }
- // Never inherit permissions from the outer GitHub app.
- iframe.setAttribute('sandbox','allow-scripts allow-forms allow-popups');
+ iframe.setAttribute('sandbox','allow-scripts allow-forms');
  iframe.removeAttribute('src');iframe.srcdoc=html;overlay.hidden=true;
- status.textContent='Loaded '+fs.length+' local files ('+(total/1048576).toFixed(1)+' MB). Some linked assets or scripts may not work.';
- }catch(e){status.textContent='Could not read that HTML file.'}
+ status.textContent='Loaded '+files.length+' files ('+(bytes/1048576).toFixed(1)+' MB). Some websites need a server to work.';
+ }catch(e){status.textContent='Unable to load these files.';}
 });
-window.addEventListener('pagehide',clean);
+window.addEventListener('pagehide',()=>urls.forEach(u=>URL.revokeObjectURL(u)));
 })();
-</script><script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body></html>
+</script></body></html>
