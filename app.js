@@ -41,28 +41,47 @@ function explain(error) {
     return 'Your microphone is busy or unavailable.';
   if (error?.message === 'insecure')
     return 'Use the HTTPS GitHub Pages URL to access your microphone.';
+  if (error?.message?.startsWith('TURN setup:'))
+    return error.message + '. The site owner should check turn-config.js.';
   return 'Could not start voice chat. Check your internet connection and retry.';
 }
 
+// Metered gives each credential a scoped API key specifically intended for
+// client-side use. Never embed a Metered account Secret Key in this repository.
 async function turnServers() {
-  if (OWN_TURN_SERVERS.length) return OWN_TURN_SERVERS;
-  // Public Open Relay testing endpoint with its documented shared auth secret.
-  const username = Math.floor(Date.now() / 1000 + 86400) + ':openline';
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode('openrelayprojectsecret'),
-    {name: 'HMAC', hash: 'SHA-1'}, false, ['sign']
-  );
-  const bytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(username)));
-  const credential = btoa(String.fromCharCode(...bytes));
-  return [{
-    urls: [
-      'turn:staticauth.openrelay.metered.ca:80?transport=udp',
-      'turn:staticauth.openrelay.metered.ca:443?transport=tcp',
-      'turns:staticauth.openrelay.metered.ca:443?transport=tcp'
-    ],
-    username, credential
-  }];
+  const setup = window.OPENLINE_TURN_CONFIG || {};
+  const domain = String(setup.domain || '').trim()
+    .replace(/^https?:\/\//i, '').replace(/\/$/, '');
+  const scopedKey = String(setup.credentialApiKey || '').trim();
+  if (!domain || !scopedKey) return [];
+
+  if (!/^[a-z0-9][a-z0-9-]*\.metered\.live$/i.test(domain)) {
+    throw new Error('TURN setup: domain must look like myapp.metered.live');
+  }
+  let response;
+  try {
+    response = await fetch(
+      'https://' + domain + '/api/v1/turn/credentials?apiKey=' + encodeURIComponent(scopedKey),
+      {cache:'no-store'}
+    );
+  } catch (error) {
+    throw new Error('TURN setup: failed to reach the Metered credential service');
+  }
+  if (!response.ok) {
+    throw new Error('TURN setup: the credential service returned HTTP ' + response.status);
+  }
+  const ice = await response.json();
+  if (!Array.isArray(ice)) {
+    throw new Error('TURN setup: invalid ICE server response');
+  }
+  const relays = ice.filter(item => {
+    const urls = Array.isArray(item?.urls) ? item.urls : [item?.urls];
+    return urls.some(url => typeof url === 'string' && /^turns?:/i.test(url));
+  });
+  if (!relays.length || relays.some(item => !item.username || !item.credential)) {
+    throw new Error('TURN setup: no usable TURN credentials returned');
+  }
+  return relays;
 }
 
 // If the browser can't gather a "relay" ICE candidate, the TURN fallback is
@@ -195,9 +214,11 @@ function connectionIssue(s, message) {
 function waitForAudio(s, key) {
   setTimeout(() => {
     if (session !== s || !s.routes.has(key) || s.audios.has(key)) return;
-    const reason = s.turnAvailable === false
-      ? 'The TURN relay is unreachable from this network. A dedicated relay is needed for reliable calls.'
-      : 'Peer discovered, but no audio arrived. Check the microphone on both devices, then press Retry.';
+    const reason = !s.turnConfigured
+      ? 'No TURN relay has been configured yet. Calls between different networks may fail.'
+      : s.turnAvailable === false
+        ? 'The configured TURN relay cannot be reached from this network.'
+        : 'Peer discovered, but no audio arrived. Check microphones on both devices, then retry.';
     connectionIssue(s, reason);
   }, 16000);
 }
@@ -307,7 +328,8 @@ async function start() {
     if (!available.length) throw Error('Both connection libraries failed to load.');
     const s = {
       stream, servers, rooms: new Map(), routes: new Map(), audios: new Map(),
-      clientId: crypto.randomUUID(), turnAvailable: null, brokerResult: null,
+      clientId: crypto.randomUUID(), turnAvailable: null,
+      turnConfigured: servers.length > 0, brokerResult: null,
       connectionFailures: new Map(), stopMeter: null
     };
     session = s;
@@ -326,13 +348,20 @@ async function start() {
     ui.call.hidden = false;
     updateRoom(s);
     microphoneMeter(s);
-    void checkTurn(servers).then(result => {
-      if (session !== s) return;
-      s.turnAvailable = result;
-      if (!result && !activeRemoteAudioIds(s).size) {
-        ui.notice.textContent = 'TURN fallback unavailable. Direct connections might work, but some Wi-Fi networks will block calls.';
-      }
-    }).catch(error => console.warn('TURN diagnostic:', error));
+    if (servers.length) {
+      void checkTurn(servers).then(result => {
+        if (session !== s) return;
+        s.turnAvailable = result;
+        if (!result && !activeRemoteAudioIds(s).size) {
+          ui.notice.textContent = 'TURN credentials loaded, but your network could not establish a relay connection.';
+          ui.diagnostics.hidden = false;
+        }
+      }).catch(error => console.warn('TURN diagnostic:', error));
+    } else {
+      s.turnAvailable = false;
+      ui.notice.textContent = 'A TURN relay has not been configured by the site owner. Calls on separate Wi-Fi networks may not connect.';
+      ui.diagnostics.hidden = false;
+    }
     // 01 means nobody has completed a WebRTC connection. Check the public
     // broker path before assuming the other browser is simply absent.
     setTimeout(async () => {
@@ -346,11 +375,15 @@ async function start() {
         if (session !== s || uniqueRemoteIds(s).size) return;
         s.brokerResult = access.filter(Boolean).length;
         if (!s.brokerResult)
-          ui.notice.textContent = 'Your browser cannot reach the public MQTT relays. Try turning off VPN or browser filters, or using mobile data.';
+          ui.notice.textContent = 'Your browser cannot reach the public MQTT relays. Try disabling VPN or browser filters, or using mobile data.';
+        else if (!s.turnConfigured)
+          ui.notice.textContent = 'No TURN relay has been configured. Different networks may be unable to establish WebRTC, even when brokers respond.';
+        else if (s.turnAvailable === false)
+          ui.notice.textContent = 'Your configured TURN relay is unreachable. Check the credentials and your network.';
         else if (s.connectionFailures.size)
-          ui.notice.textContent = 'Public relays respond, but the WebRTC handshake failed. A working dedicated TURN relay may be required.';
+          ui.notice.textContent = 'Signaling responded but WebRTC negotiation failed. Copy the connection report.';
         else
-          ui.notice.textContent = 'Public relays respond, but no peer connected. Refresh the page on both devices and ensure you are using the exact same URL.';
+          ui.notice.textContent = 'No peer connected. Both devices must use the same link and refresh. Copy diagnostics if it continues.';
       } catch (error) {
         console.warn('Relay check failed', error);
         if (session === s) ui.notice.textContent = 'Could not complete the connection test. Copy diagnostics for more details.';
@@ -415,7 +448,7 @@ ui.diagnostics.addEventListener('click', async () => {
     'openline connection diagnostics / v4',
     'Routes loaded: ' + [...s.rooms.keys()].join(','),
     'MQTT brokers reachable: ' + (s.brokerResult === null ? 'unknown' : s.brokerResult + '/' + MQTT_BROKERS.length),
-    'TURN relay candidate: ' + (s.turnAvailable === null ? 'unknown' : s.turnAvailable ? 'yes' : 'no'),
+    'TURN relay candidate: ' + (!s.turnConfigured ? 'not configured' : s.turnAvailable === null ? 'checking' : s.turnAvailable ? 'yes' : 'no'),
     'WebRTC connection errors: ' + [...s.connectionFailures.entries()].map(([n, x]) => n + ':' + x).join(','),
     'Peer count: ' + uniqueRemoteIds(s).size,
     'Remote audio count: ' + activeRemoteAudioIds(s).size,
