@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#090d18" />
+    <meta name="description" content="A simple, instant, shared voice chat room." />
+    <title>Voice Chat</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <section id="landing" class="landing" aria-label="Voice chat">
+        <button type="button" id="start" class="start-button">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 18v4m-4 0h8" />
+            <rect x="9" y="2" width="6" height="12" rx="3" />
+            <path d="M5 10v2a7 7 0 0 0 14 0v-2" />
+          </svg>
+          <span id="start-label">Start voice chat</span>
+        </button>
+        <p id="error" class="error" role="alert" hidden></p>
+      </section>
+
+      <section id="call" class="call" aria-label="Voice chat connected" hidden>
+        <div class="mic-orb" aria-hidden="true">
+          <div class="mic-orb__circle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3M8 22h8" />
+            </svg>
+          </div>
+        </div>
+        <p class="eyebrow"><span class="online-dot"></span>LIVE VOICE ROOM</p>
+        <h1 id="heading" aria-live="polite">Waiting for others…</h1>
+        <p class="description" id="description">You're connected. Share this site with someone so they can join you.</p>
+        <p id="people" class="people" aria-live="polite">1 person in the room (you)</p>
+        <div class="actions">
+          <button type="button" id="mute" class="control control--light" aria-pressed="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+            </svg>
+            <span id="mute-label">Mute</span>
+          </button>
+          <button type="button" id="invite" class="control control--light">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+            </svg>
+            <span id="invite-label">Copy link</span>
+          </button>
+          <button type="button" id="leave" class="control control--danger">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 17l5-5-5-5M15 12H3" /><path d="M12 3h5a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-5" />
+            </svg>
+            <span>Leave</span>
+          </button>
+        </div>
+        <button type="button" id="enable-sound" class="sound-button" hidden>Tap to enable sound</button>
+        <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <div id="audio-container" aria-hidden="true"></div>
+  </body>
+</html>
