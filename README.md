@@ -8,6 +8,18 @@ https://sigma106.github.io/voicechat/
 
 If GitHub Pages is not enabled, open https://github.com/Sigma106/voicechat/settings/pages and set **Deploy from a branch → main → /(root)**.
 
+## October 24 — connection troubleshooting, version 4
+
+If both browsers display **01 ON THE LINE**, the connection between browsers has not completed. This can mean signaling brokers cannot be reached, browsers cannot negotiate WebRTC, or one side is on an older version. It does **not** by itself prove TURN is broken.
+
+Version 4 now pins the same three public MQTT broker addresses for all visitors and also runs the Nostr strategy in parallel. This reduces the risk of peers being on non-overlapping public signaling brokers.
+
+**Both people must refresh the site** to load v4. In the active voice room, press **UNMUTE MIC** if you see **MIC MUTED** (as in the screenshot). Turn off any active VPN/proxy or filtering extensions temporarily for a test, then try on different networks. Public relay connectivity and TURN still are not guaranteed.
+
+After 15 seconds without a peer, a message appears, along with **Copy connection report**. Paste the report into the chat to show which transport modules loaded, whether the public MQTT WebSocket endpoints are reachable, whether TURN yields a relay candidate, and whether WebRTC failed after an attempted handshake. The WebSocket test confirms server reachability, **not** successful MQTT subscription.
+
+For consistently reliable cross-network use, arrange dedicated signaling infrastructure (Supabase/Firebase or another managed provider) and a dedicated TURN service. The static GitHub Pages host cannot safely keep private service credentials or guarantee availability of volunteer/public infrastructure.
+
 ## Cross-network troubleshooting (October 2026 update)
 
 The site now opens **two independent signaling paths** (public MQTT and Nostr relays). If one relay network is down, the other may still discover peers. It also deduplicates audio from the same remote browser so you don't hear echoes and checks whether the configured TURN relay can supply a relay ICE candidate.
