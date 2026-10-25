@@ -19,18 +19,22 @@ iframe{display:block;width:100%;height:65vh;min-height:440px;border:0;background
 #overlay{position:absolute;inset:0;background:#111827;color:white;padding:32px 20px;display:flex;align-items:center;justify-content:center;text-align:center}
 #overlay[hidden]{display:none}
 #fullscreenBack{display:none;position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:calc(env(safe-area-inset-left,0px) + 12px);z-index:10002;background:#2563eb;border-radius:999px;min-width:52px;min-height:52px;padding:10px 15px;box-shadow:0 4px 18px #0008}
-body.preview-fullscreen{overflow:hidden}
-body.preview-fullscreen #frameWrap{position:fixed;inset:0;z-index:10000;width:100vw;height:100dvh;border:0;border-radius:0}
-body.preview-fullscreen #frame{height:100%;min-height:0}
+body.preview-fullscreen{overflow:hidden;overscroll-behavior:none}
+#zoomControls{display:none;position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);z-index:10003;gap:5px;align-items:center;background:#111827e8;border-radius:16px;padding:5px;box-shadow:0 3px 15px #0007}
+#zoomControls button{padding:9px 12px;min-height:42px;min-width:42px;border-radius:11px}
+#zoomLevel{font-size:13px;min-width:40px;text-align:center;font-weight:700}
+body.preview-fullscreen #zoomControls{display:flex}
+body.preview-fullscreen #frameWrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:10000;width:100%!important;height:100dvh!important;min-height:0!important;max-height:none!important;border:0;border-radius:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+body.preview-fullscreen #frame{height:100dvh;min-height:100dvh;width:100%;zoom:var(--preview-zoom,1);max-width:none}
 body.preview-fullscreen #fullscreenBack{display:block}
-@supports(height:100svh){body.preview-fullscreen #frameWrap{height:100svh}}
+
 small{color:#94a3b8;line-height:1.5;display:block;margin-top:16px}
 </style></head>
 <body><main><h1>Website Viewer</h1><p>Enter a website address to preview it below or open it in a normal tab.</p>
 <section class="panel" style="margin-bottom:16px"><h2>Open a saved website</h2><p>Choose an HTML file and its accompanying images, videos, styles and scripts (50 MB total maximum).</p><input id="files" type="file" multiple style="width:100%;margin:8px 0"><button type="button" id="loadFiles">Load saved files</button><p id="localStatus" role="status" aria-live="polite"></p></section><section class="panel"><label for="url">Website URL</label><form id="form"><input id="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required><button type="submit">View website</button></form>
 <div class="actions"><button type="button" id="fullscreenOpen">Full screen ⛶</button><a class="action" id="open" href="https://example.com" target="_blank" rel="noopener noreferrer">Open in browser ↗</a><button id="reset" type="button">Clear preview</button></div>
 <p id="status" role="status" aria-live="polite">Ready.</p>
-<button type="button" id="fullscreenBack" aria-label="Exit full screen">←</button><div id="frameWrap"><div id="overlay"><div><h2>Preview area</h2><p>Saved copies may have missing media or interactive features. Some websites prevent being displayed inside another website. Use “Open in browser” if you see a blank preview.</p></div></div><iframe id="frame" title="Website preview" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+<button type="button" id="fullscreenBack" aria-label="Exit full screen">←</button><div id="zoomControls" aria-label="Page zoom controls"><button type="button" id="zoomOut" aria-label="Zoom out">−</button><span id="zoomLevel">100%</span><button type="button" id="zoomIn" aria-label="Zoom in">+</button><button type="button" id="zoomReset" aria-label="Reset zoom">1×</button></div><div id="frameWrap"><div id="overlay"><div><h2>Preview area</h2><p>Saved copies may have missing media or interactive features. Some websites prevent being displayed inside another website. Use “Open in browser” if you see a blank preview.</p></div></div><iframe id="frame" title="Website preview" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
 <small>This is a browser-based viewer, not a VPN or proxy. It cannot bypass iOS Screen Time, parental controls, network blocks, login requirements, or sites that prohibit embedding. A loaded iframe does not always mean the site displayed successfully.</small>
 </section></main>
 <script>
@@ -39,8 +43,12 @@ function normalize(value){let s=value.trim();if(!/^https?:\/\//i.test(s))s='http
 const API='https://hgvvnfzevklbanudjaff.supabase.co/functions/v1/capture-site';
 const PUBLIC_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndnZuZnpldmtsYmFudWRqYWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMDg3ODIsImV4cCI6MjEwNjg4NDc4Mn0.6xdY74YY86ixQbIkxgbQqpgyC4jl_3FoXRyYgVj7kmM';
 let loading=false;
+let zoom=1;const applyZoom=()=>{document.getElementById('frame').style.setProperty('--preview-zoom',zoom);document.getElementById('zoomLevel').textContent=Math.round(zoom*100)+'%';};
+document.getElementById('zoomIn').addEventListener('click',()=>{zoom=Math.min(3,Math.round((zoom+0.25)*100)/100);applyZoom()});
+document.getElementById('zoomOut').addEventListener('click',()=>{zoom=Math.max(0.5,Math.round((zoom-0.25)*100)/100);applyZoom()});
+document.getElementById('zoomReset').addEventListener('click',()=>{zoom=1;applyZoom()});
 const enterFull=()=>{if(overlay.hidden){document.body.classList.add('preview-fullscreen');document.getElementById('fullscreenBack').focus()}else status.textContent='Load a website first to use full screen.'};
-const exitFull=()=>document.body.classList.remove('preview-fullscreen');
+const exitFull=()=>{document.body.classList.remove('preview-fullscreen');zoom=1;applyZoom()};
 document.getElementById('fullscreenOpen').addEventListener('click',enterFull);
 document.getElementById('fullscreenBack').addEventListener('click',exitFull);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')exitFull()});
