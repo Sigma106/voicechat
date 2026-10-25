@@ -39,7 +39,7 @@ form.addEventListener('submit',async e=>{
  if(!url.startsWith('https://')){status.textContent='Snapshots require HTTPS websites.';return}
  open.href=url;input.value=url;loading=true;
  const button=form.querySelector('button');button.disabled=true;button.textContent='Saving site…';
- status.textContent='Downloading publicly available page and assets into Supabase (maximum 50 MB)…';
+ status.textContent='Saving page and permitted images separately in Supabase (50 MB combined limit)…';
  try{
   const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','apikey':PUBLIC_KEY,'Authorization':'Bearer '+PUBLIC_KEY},body:JSON.stringify({url})});
   const raw=await response.text();
@@ -52,7 +52,7 @@ form.addEventListener('submit',async e=>{
   frame.setAttribute('sandbox','');
   frame.removeAttribute('src');
   frame.srcdoc=html;overlay.hidden=true;
-  status.textContent='Loaded saved index.html from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets, '+(result.missingAssets||0)+' unavailable). Static preview: some site features may not work.';
+  status.textContent='Loaded snapshot from Supabase ('+(result.size/1048576).toFixed(2)+' MB, '+result.assets+' assets, '+(result.missingAssets||0)+' unavailable). Static preview: some site features may not work.';
  }catch(error){status.textContent='Could not save the site: '+(error?.message||'Unknown error');overlay.hidden=false;}
  finally{loading=false;button.disabled=false;button.textContent='View website';}
 });
