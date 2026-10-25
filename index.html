@@ -28,9 +28,10 @@ body.preview-fullscreen #frameWrap{position:fixed!important;top:0!important;left
 body.preview-fullscreen #frame{height:100dvh;min-height:100dvh;width:100%;zoom:var(--preview-zoom,1);max-width:none}
 body.preview-fullscreen #fullscreenBack{display:block}
 
+#menuZoom{display:flex;align-items:center;gap:8px;margin:8px 0 18px}#menuZoom button{padding:8px 13px}#menuZoomLabel{min-width:44px;text-align:center;font-weight:700}body.preview-fullscreen #menuZoom{display:none}
 small{color:#94a3b8;line-height:1.5;display:block;margin-top:16px}
 </style></head>
-<body><main><h1>Website Viewer</h1><p>Enter a website address to preview it below or open it in a normal tab.</p>
+<body><main><h1>Website Viewer</h1><div id="menuZoom" aria-label="Menu zoom"><button type="button" id="menuMinus" aria-label="Zoom menu out">−</button><span id="menuZoomLabel">100%</span><button type="button" id="menuPlus" aria-label="Zoom menu in">+</button><button type="button" id="menuReset" aria-label="Reset menu zoom">1×</button></div><p>Enter a website address to preview it below or open it in a normal tab.</p>
 <section class="panel" style="margin-bottom:16px"><h2>Open a saved website</h2><p>Choose an HTML file and its accompanying images, videos, styles and scripts (50 MB total maximum).</p><input id="files" type="file" multiple style="width:100%;margin:8px 0"><button type="button" id="loadFiles">Load saved files</button><p id="localStatus" role="status" aria-live="polite"></p></section><section class="panel"><label for="url">Website URL</label><form id="form"><input id="url" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" required><button type="submit">View website</button></form>
 <div class="actions"><button type="button" id="fullscreenOpen">Full screen ⛶</button><a class="action" id="open" href="https://example.com" target="_blank" rel="noopener noreferrer">Open in browser ↗</a><button id="reset" type="button">Clear preview</button></div>
 <p id="status" role="status" aria-live="polite">Ready.</p>
@@ -43,6 +44,16 @@ function normalize(value){let s=value.trim();if(!/^https?:\/\//i.test(s))s='http
 const API='https://hgvvnfzevklbanudjaff.supabase.co/functions/v1/capture-site';
 const PUBLIC_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhndnZuZnpldmtsYmFudWRqYWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMDg3ODIsImV4cCI6MjEwNjg4NDc4Mn0.6xdY74YY86ixQbIkxgbQqpgyC4jl_3FoXRyYgVj7kmM';
 let loading=false;
+let menuScale=1;
+const applyMenuScale=()=>{document.querySelector('main').style.zoom=String(menuScale);document.getElementById('menuZoomLabel').textContent=Math.round(menuScale*100)+'%'};
+document.getElementById('menuMinus').addEventListener('click',()=>{menuScale=Math.max(.6,menuScale-.1);applyMenuScale()});
+document.getElementById('menuPlus').addEventListener('click',()=>{menuScale=Math.min(2.5,menuScale+.1);applyMenuScale()});
+document.getElementById('menuReset').addEventListener('click',()=>{menuScale=1;applyMenuScale()});
+let pinchDistance=0,pinchBase=1;
+const distance=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+document.addEventListener('touchstart',e=>{if(e.touches.length===2&&!document.body.classList.contains('preview-fullscreen')){pinchDistance=distance(e.touches);pinchBase=menuScale;}},{passive:true});
+document.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinchDistance&&!document.body.classList.contains('preview-fullscreen')){e.preventDefault();menuScale=Math.max(.6,Math.min(2.5,pinchBase*distance(e.touches)/pinchDistance));applyMenuScale()}},{passive:false});
+document.addEventListener('touchend',e=>{if(e.touches.length<2)pinchDistance=0},{passive:true});
 let zoom=1;const applyZoom=()=>{document.getElementById('frame').style.setProperty('--preview-zoom',zoom);document.getElementById('zoomLevel').textContent=Math.round(zoom*100)+'%';};
 document.getElementById('zoomIn').addEventListener('click',()=>{zoom=Math.min(3,Math.round((zoom+0.25)*100)/100);applyZoom()});
 document.getElementById('zoomOut').addEventListener('click',()=>{zoom=Math.max(0.5,Math.round((zoom-0.25)*100)/100);applyZoom()});
