@@ -25,7 +25,7 @@ body.preview-fullscreen{overflow:hidden;overscroll-behavior:none}
 #zoomLevel{font-size:13px;min-width:40px;text-align:center;font-weight:700}
 body.preview-fullscreen #zoomControls{display:flex}
 body.preview-fullscreen #frameWrap{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;z-index:10000;width:100%!important;height:100dvh!important;min-height:0!important;max-height:none!important;border:0;border-radius:0;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-body.preview-fullscreen #frame{height:100dvh;min-height:100dvh;width:100%;zoom:var(--preview-zoom,1);max-width:none}
+body.preview-fullscreen #frame{display:block;position:relative;width:calc(100% / var(--preview-zoom,1));height:calc(100dvh / var(--preview-zoom,1));min-height:0;max-width:none;transform:scale(var(--preview-zoom,1));transform-origin:top left}
 body.preview-fullscreen #fullscreenBack{display:block}
 
 #menuZoom{display:flex;align-items:center;gap:8px;margin:8px 0 18px}#menuZoom button{padding:8px 13px}#menuZoomLabel{min-width:44px;text-align:center;font-weight:700}body.preview-fullscreen #menuZoom{display:none}
@@ -54,7 +54,7 @@ const distance=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY
 document.addEventListener('touchstart',e=>{if(e.touches.length===2&&!document.body.classList.contains('preview-fullscreen')){pinchDistance=distance(e.touches);pinchBase=menuScale;}},{passive:true});
 document.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinchDistance&&!document.body.classList.contains('preview-fullscreen')){e.preventDefault();menuScale=Math.max(.6,Math.min(2.5,pinchBase*distance(e.touches)/pinchDistance));applyMenuScale()}},{passive:false});
 document.addEventListener('touchend',e=>{if(e.touches.length<2)pinchDistance=0},{passive:true});
-let zoom=1;const applyZoom=()=>{document.getElementById('frame').style.setProperty('--preview-zoom',zoom);document.getElementById('zoomLevel').textContent=Math.round(zoom*100)+'%';};
+let zoom=1;const applyZoom=()=>{const f=document.getElementById('frame');f.style.setProperty('--preview-zoom',String(zoom));document.getElementById('zoomLevel').textContent=Math.round(zoom*100)+'%';document.getElementById('zoomOut').disabled=zoom<=.5;document.getElementById('zoomIn').disabled=zoom>=3;};
 document.getElementById('zoomIn').addEventListener('click',()=>{zoom=Math.min(3,Math.round((zoom+0.25)*100)/100);applyZoom()});
 document.getElementById('zoomOut').addEventListener('click',()=>{zoom=Math.max(0.5,Math.round((zoom-0.25)*100)/100);applyZoom()});
 document.getElementById('zoomReset').addEventListener('click',()=>{zoom=1;applyZoom()});
