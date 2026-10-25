@@ -2,17 +2,17 @@
   "name": "Website Viewer",
   "short_name": "Site Viewer",
   "description": "A simple mobile website preview tool",
-  "start_url": "./",
+  "start_url": "./?app=10",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b1020",
   "theme_color": "#111827",
   "icons": [
     {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "./app-icon.jpg?v=10",
+      "sizes": "128x128",
+      "type": "image/jpeg",
+      "purpose": "any"
     }
   ]
 }
